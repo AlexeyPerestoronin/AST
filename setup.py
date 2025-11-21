@@ -3,6 +3,7 @@ import pandas
 from invoke import task
 from pathlib import Path
 
+
 def get_env_context():
     """
     Gets table of env-variables needing for tasks launching
@@ -15,7 +16,7 @@ def get_env_context():
         value = os.environ.get(env_variable_name)
         if not value:
             if default_value:
-                value = default_value
+                value = Path(os.path.abspath(default_value)).as_posix()
             else:
                 raise Exception(f"env-variable {env_variable_name} is not set!")
         else:
@@ -27,7 +28,8 @@ def get_env_context():
         return value
 
     # work-spaces
-    fuzz_dir = setup_dir_via_env("FUZZ_DIR", Path(os.path.abspath(f"{__file__}/../")).as_posix())
+    fuzz_dir = setup_dir_via_env("FUZZ_DIR", f"{__file__}/../")
+    git_dir = setup_dir_via_env("GIT_DIR", f"{fuzz_dir}/..")
     setup_dir_via_env("CURRENT_INSTANCE_LOG", f"{fuzz_dir}/.generated")
 
     # add here additional env-variables which will be available via ctx (context) on each task
