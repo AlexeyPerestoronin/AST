@@ -1,28 +1,92 @@
-# Check if Python is installed
+# Function to check if Chocolatey is installed
+function Is-ChocolateyInstalled {
+    try {
+        Get-Command choco -ErrorAction Stop | Out-Null
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+# Function to install Chocolatey
+function Install-Chocolatey {
+    Write-Host "Chocolatey not found. Installing Chocolatey..."
+    Set-ExecutionPolicy Bypass -Scope Process -Force
+    $chocoInstallScript = "https://chocolatey.org/install.ps1"
+    Invoke-Expression ((New-Object System.Net.WebClient).DownloadString($chocoInstallScript))
+}
+
+# Function to check if a Chocolatey package is installed
+function Choco-IsPackageInstalled {
+    param([string]$packageName)
+    $list = choco list --exact $packageName 2>$null
+    return $list -match "^$packageName"
+}
+
+
+# Function to install a missing Chocolatey package
+function Choco-InstallPackage {
+    param([string]$packageName)
+    Write-Host "Launching elevated console to install $packageName..."
+    $args = "-NoProfile -ExecutionPolicy Bypass -Command `"choco install $packageName -y --no-progress`""
+    $proc = Start-Process -FilePath "powershell.exe" -ArgumentList $args -Verb RunAs -PassThru
+    $proc.WaitForExit()
+    if ($proc.ExitCode -ne 0) {
+        Write-Error "Failed to install $package via Chocolatey in elevated console. Exiting."
+        exit 1
+    }
+}
+
+# Ensure Chocolatey is installed before checking packages
+if (-not (Is-ChocolateyInstalled)) {
+    Install-Chocolatey
+    if (-not (Is-ChocolateyInstalled)) {
+        Write-Error "Chocolatey installation failed. Please install it manually."
+        exit 1
+    }
+} else {
+    Write-Host "Chocolatey is installed."
+}
+
+# Required packages
+$requiredPackages = @("python3")
+foreach ($packageName in $requiredPackages) {
+    if (-not (Choco-IsPackageInstalled $packageName)) {
+        Choco-InstallPackage $packageName
+    } else {
+        Write-Host "$packageName is already installed."
+    }
+}
+
+# Refresh environment variables for this session
+Import-Module $env:ChocolateyInstall\helpers\chocolateyProfile.psm1
+
+
+# Check if Python and pip are available
 try {
     $pythonCmd = Get-Command python -ErrorAction Stop
 } catch {
-    Write-Host "Python not found. Please install Python from https://www.python.org/downloads/"
-    Read-Host "Press Enter to continue"
+    Write-Error "Python is not available after installation. Please verify your Chocolatey and Python setup."
     exit 1
 }
 
-# Check if pip is available
 & python -m pip --version > $null 2>&1
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "pip not available. Please ensure pip is installed."
-    Read-Host "Press Enter to continue"
-    exit 1
+    Write-Host "pip not available. Installing pip..."
+    python -m ensurepip
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Failed to install pip."
+        exit 1
+    }
 }
 
-# Check if venv module is available, if not install virtualenv
+# Check venv module, otherwise install virtualenv
 & python -c "import venv" > $null 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Host "venv module not available. Installing virtualenv..."
     & python -m pip install virtualenv
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "Failed to install virtualenv. Please check your Python installation."
-        Read-Host "Press Enter to continue"
+        Write-Error "Failed to install virtualenv."
         exit 1
     }
     $USE_VENV = $false
@@ -43,10 +107,10 @@ if (!(Test-Path .venv)) {
 # Activate virtual environment
 . .\.venv\Scripts\Activate.ps1
 
-# Install requirements
+# Install Python requirements
 & python -m pip install -r requirements.txt
 
-# print active invoke parameters
+# Print active invoke parameters
 & invoke get-info
 
 # List available invoke commands
