@@ -18,21 +18,32 @@ function Install-Chocolatey {
 
 # Function to check if a Chocolatey package is installed
 function Choco-IsPackageInstalled {
-    param([string]$packageName)
-    $list = choco list --exact $packageName 2>$null
-    return $list -match "^$packageName"
+    param(
+        [string]$packageName,
+        [string[]]$extraArgs = @()
+    )
+    $argsString = $extraArgs -join " "
+    Write-Host "Check is choco package installed: $packageName $argsString"
+    $list = choco list --exact $packageName @extraArgs
+    if ($list -match "0 packages installed") {
+        return $false
+    }
+    return $true
 }
-
 
 # Function to install a missing Chocolatey package
 function Choco-InstallPackage {
-    param([string]$packageName)
-    Write-Host "Launching elevated console to install $packageName..."
-    $args = "-NoProfile -ExecutionPolicy Bypass -Command `"choco install $packageName -y --no-progress`""
+    param(
+        [string]$packageName,
+        [string[]]$extraArgs = @()
+    )
+    $argsString = $extraArgs -join " "
+    Write-Host "Launching elevated console to install $packageName $argsString..."
+    $args = "-NoProfile -ExecutionPolicy Bypass -Command `"choco install -y --no-progress $packageName $argsString`""
     $proc = Start-Process -FilePath "powershell.exe" -ArgumentList $args -Verb RunAs -PassThru
     $proc.WaitForExit()
     if ($proc.ExitCode -ne 0) {
-        Write-Error "Failed to install $package via Chocolatey in elevated console. Exiting."
+        Write-Error "Failed to install $packageName via Chocolatey in elevated console. Exiting."
         exit 1
     }
 }
@@ -48,19 +59,20 @@ if (-not (Is-ChocolateyInstalled)) {
     Write-Host "Chocolatey is installed."
 }
 
-# Required packages
-$requiredPackages = @("python3")
-foreach ($packageName in $requiredPackages) {
-    if (-not (Choco-IsPackageInstalled $packageName)) {
-        Choco-InstallPackage $packageName
+# Required packages with optional extra arguments array
+$requiredPackages = @(
+    @{ Name = "python"; ExtraArgs = @("--version=3.9.12") }
+)
+foreach ($pkg in $requiredPackages) {
+    if (-not (Choco-IsPackageInstalled $pkg.Name $pkg.ExtraArgs)) {
+        Choco-InstallPackage $pkg.Name $pkg.ExtraArgs
     } else {
-        Write-Host "$packageName is already installed."
+        Write-Host "$($pkg.Name) $($pkg.ExtraArgs -join ' ') is already installed."
     }
 }
 
 # Refresh environment variables for this session
 Import-Module $env:ChocolateyInstall\helpers\chocolateyProfile.psm1
-
 
 # Check if Python and pip are available
 try {
