@@ -64,6 +64,15 @@ namespace = invoke.Collection()
 namespace.add_task(get_info, name="get-info")
 namespace.add_task(yapf, name="yapf")
 
+if os.name == "nt":
+    import environment_windows as environment
+elif os.name == "posix":
+    import environment_linux as environment
+else:
+    raise Exception("unsupported operation system!")
+
+namespace.add_collection(invoke.Collection.from_module(environment, name="environment"))
+
 import project
 
 namespace.add_collection(project.collection)
