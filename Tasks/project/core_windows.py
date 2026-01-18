@@ -1,12 +1,15 @@
-from invoke import task
-
-import setup
-from utils.command_executor import CommandExecutor
-from utils.logger import print_task_documentation
+import commandcript
 
 
-@task(
-    pre=[setup.setup_context],
+def activate_VS2019_environment():
+    return [
+        "call",
+        "\"C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/Common7/Tools/vsdevcmd\"",
+        "-arch=x64",
+    ]
+
+
+@commandcript.script_task(
     help={
         "param1": "boolean parameter",
         "param2": "text parameter",
@@ -15,10 +18,9 @@ from utils.logger import print_task_documentation
     },
     iterable=["arg"],
 )
-@print_task_documentation
 def task(ctx, param1=False, param2="default text", param3=8, arg=None):
     """
-    Task template (on linux)!
+    Task template (on windows)!
     """
 
     command = [
@@ -32,5 +34,6 @@ def task(ctx, param1=False, param2="default text", param3=8, arg=None):
         for a in arg:
             command.append(f"arg={a}")
 
-    CommandExecutor(ctx)\
+    commandcript.ScriptExecutor(ctx.script_dir, ctx.launch)\
+        .add_command(activate_VS2019_environment())\
         .add_command(command).execute("project-task.log")

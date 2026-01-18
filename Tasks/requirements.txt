@@ -1,0 +1,3 @@
+commandcript>=1.1.0     # creation and managements OS specific script-tasks
+prettytable>=3          # print pretty tables to console
+yapf>=0.4               # format python code
